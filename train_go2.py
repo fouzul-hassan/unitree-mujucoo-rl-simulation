@@ -325,7 +325,7 @@ class Go2SymmetryEnv(gym.Env):
 # Training Callback
 # ═══════════════════════════════════════════════════════════════════════════════
 class TrainLogger(BaseCallback):
-    def __init__(self, log_interval=5000, verbose=1):
+    def __init__(self, log_interval=10000, verbose=1):
         super(TrainLogger, self).__init__(verbose)
         self.log_interval = log_interval
         self.rewards = []
@@ -338,22 +338,31 @@ class TrainLogger(BaseCallback):
     def _on_step(self):
         if self.num_timesteps % self.log_interval == 0:
             elapsed = time.time() - self.t0
-            infos = self.locals.get("infos", [])
-            ep_rewards = [
-                info["episode"]["r"] for info in infos
-                if "episode" in info
-            ]
-            mean_r = np.mean(ep_rewards) if ep_rewards else 0.0
+            sps = self.num_timesteps / max(elapsed, 1)
+
+            # Get mean reward from SB3's rollout buffer (last 100 episodes)
+            mean_r = 0.0
+            if len(self.model.ep_info_buffer) > 0:
+                mean_r = np.mean([ep_info["r"] for ep_info in self.model.ep_info_buffer])
+            
             self.rewards.append(mean_r)
             self.timesteps_log.append(self.num_timesteps)
-            sps = self.num_timesteps / max(elapsed, 1)
+
             if self.verbose:
-                print(
-                    f"Step {self.num_timesteps:>8,} | "
-                    f"Reward: {mean_r:8.2f} | "
-                    f"Time: {elapsed:6.1f}s | "
-                    f"SPS: {sps:,.0f}"
-                )
+                if mean_r == 0.0:
+                    print(
+                        f"Step {self.num_timesteps:>8,} | "
+                        f"Reward: (waiting for ep finish) | "
+                        f"Time: {elapsed:6.1f}s | "
+                        f"SPS: {sps:,.0f}"
+                    )
+                else:
+                    print(
+                        f"Step {self.num_timesteps:>8,} | "
+                        f"Reward: {mean_r:8.2f} | "
+                        f"Time: {elapsed:6.1f}s | "
+                        f"SPS: {sps:,.0f}"
+                    )
         return True
 
 
