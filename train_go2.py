@@ -26,6 +26,7 @@ import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import BaseCallback
 
 # Add current dir to path so we can import gait_utils
@@ -173,7 +174,7 @@ class Go2SymmetryEnv(gym.Env):
         # Rewards
         r = self._rewards(action, lp, contacts, torque)
         total = sum(self.rw.get(k, 0) * v for k, v in r.items())
-        total = float(np.clip(total * self.ctrl_dt, 0.0, 100.0))
+        total = float(np.clip(total * self.ctrl_dt, -10.0, 10.0))
 
         # Termination
         up = self._up_vec()
@@ -371,7 +372,7 @@ class TrainLogger(BaseCallback):
 # ═══════════════════════════════════════════════════════════════════════════════
 def make_env(xml_path):
     def _init():
-        return Go2SymmetryEnv(xml_path=xml_path)
+        return Monitor(Go2SymmetryEnv(xml_path=xml_path))
     return _init
 
 
@@ -414,7 +415,6 @@ def main():
     # ── Training ──
     print("=" * 60)
     print("Symmetry-Guided RL for Unitree Go2 Quadrupedal Gaits")
-    print("Paper: arXiv:2510.10455v1")
     print("=" * 60)
     print(f"Training timesteps: {args.timesteps:,}")
     print(f"Parallel envs: {args.n_envs}")
